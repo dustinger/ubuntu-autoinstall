@@ -1,0 +1,129 @@
+#cloud-config
+autoinstall:
+  version: 1
+  identity:
+    hostname: dev-vm
+    username: devuser
+    password: "$6$nu9.acyHLcYKldfA$WbKaDp.gyBCztVvyRIn4M3ob2WNzt1yfe.ay1Oq4l2fvgIjkwmPRKt69MuYHJyLDInrSvRbm7FoYk59Mj8kwF."  # Replace with an actual hashed password using openssl passwd -6
+  ssh:
+    install-server: true
+  keyboard:
+    layout: us
+    variant: ''
+  locale: en_US.UTF-8
+  storage:
+    layout:
+      name: lvm
+  packages:
+    - build-essential
+    - git
+    - curl
+    - wget
+    - zsh
+    - tmux
+    - python3
+    - python3-pip
+    - python3-venv
+    - postgresql
+    - postgresql-contrib
+    - libpq-dev
+    - docker.io
+    - docker-compose
+    - code
+    - nodejs
+    - npm
+    - golang
+    - ruby
+    - ruby-dev
+    - rails
+    - libssl-dev
+    - zlib1g-dev
+    - pgadmin4
+    - apt-transport-https
+    - dbeaver-ce  # Now installed via apt repository
+
+  user-data:
+    runcmd:
+      # Update and upgrade system packages
+      - apt update && apt upgrade -y
+
+      # Configure Git
+      - git config --global user.name "Your Name"
+      - git config --global user.email "your.email@example.com"
+
+      # Install RVM (Ruby Version Manager) for Ruby on Rails setup
+      - curl -sSL https://get.rvm.io | bash -s stable
+      - source /etc/profile.d/rvm.sh
+      - rvm install 3.1.2
+      - gem install bundler
+      - gem install rails
+
+      # Install Go and configure environment variables
+      - wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
+      - sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+      - echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+      - source ~/.bashrc
+
+      # Install Python virtual environment and upgrade pip
+      - python3 -m pip install --upgrade pip
+      - python3 -m pip install virtualenv
+
+      # Install Node.js and Yarn globally
+      - curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+      - apt install -y nodejs
+      - npm install -g yarn
+      - npm install -g eslint
+
+      # Set up Docker and add user to docker group
+      - sudo usermod -aG docker devuser
+
+      # Install VSCode extensions for different languages and tools
+      - code --install-extension rebornix.ruby
+      - code --install-extension ms-python.python
+      - code --install-extension golang.go
+      - code --install-extension dbaeumer.vscode-eslint
+      - code --install-extension bung87.rails
+      - code --install-extension eamodio.gitlens
+
+      # Install Postman (without Snap)
+      - wget https://dl.pstmn.io/download/latest/linux64 -O postman-linux.tar.gz
+      - sudo tar -xzf postman-linux.tar.gz -C /opt
+      - sudo ln -s /opt/Postman/Postman /usr/local/bin/postman
+
+      # Install DBeaver (without Snap)
+      - wget -O - https://dbeaver.io/debs/dbeaver.gpg.key | sudo apt-key add -
+      - echo "deb https://dbeaver.io/debs/dbeaver-ce /" | sudo tee /etc/apt/sources.list.d/dbeaver.list
+      - apt update && apt install dbeaver-ce -y
+
+      # Install Oh-My-Zsh and configure Zsh as the default shell
+      - sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      - echo "source ~/.zshrc" >> ~/.bashrc
+      - chsh -s $(which zsh) devuser
+
+      # Install nvm for Node.js version management and set default node version
+      - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+      - export NVM_DIR="$HOME/.nvm"
+      - [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+      - nvm install node
+      - nvm use node
+
+      # Install pyenv for Python version management
+      - curl https://pyenv.run | bash
+      - echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bashrc
+      - echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+      - echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+      - pyenv install 3.9.7
+      - pyenv global 3.9.7
+
+  late-commands:
+    # Enable Docker without requiring sudo for devuser
+    - curtin in-target --target=/target usermod -aG docker devuser
+    
+    # Enable PostgreSQL service
+    - curtin in-target --target=/target systemctl enable postgresql
+
+  grub:
+    cmdline:
+      - "console=tty0"
+      - "console=ttyS0"
+      - "autoinstall"
